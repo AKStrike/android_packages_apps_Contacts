@@ -182,6 +182,8 @@ public class TwelveKeyDialer extends Activity implements View.OnClickListener,
     //Pick-Up-To-Call
     private SensorManager mSensorManager;
     private static final String PICK_UP_TO_CALL = "pick_up_to_call";
+    private int SensorOrientationY;
+	private int SensorProximity;
     
     /**
      * Identifier for intent extra for sending an empty Flash message for
@@ -258,9 +260,15 @@ public class TwelveKeyDialer extends Activity implements View.OnClickListener,
         //Pick-Up-To-Call
         try {
 			if(Settings.System.getInt(getContentResolver(),PICK_UP_TO_CALL) == 1) {
+				SensorProximity = 1;
+				SensorOrientationY = 0;
+				
 				mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
 				mSensorManager.registerListener(this,
 							mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION),
+							SensorManager.SENSOR_DELAY_UI);
+				mSensorManager.registerListener(this,
+							mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY),
 							SensorManager.SENSOR_DELAY_UI);
 			}
 		} catch (SettingNotFoundException e) {
@@ -608,9 +616,15 @@ public class TwelveKeyDialer extends Activity implements View.OnClickListener,
         //Pick-Up-To-Call
         try {
 			if(Settings.System.getInt(getContentResolver(),PICK_UP_TO_CALL) == 1) {
+				SensorProximity = 1;
+				SensorOrientationY = 0;
+				
 				mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
 				mSensorManager.registerListener(this,
 							mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION),
+							SensorManager.SENSOR_DELAY_UI);
+				mSensorManager.registerListener(this,
+							mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY),
 							SensorManager.SENSOR_DELAY_UI);
 			}
 		} catch (SettingNotFoundException e) {
@@ -788,6 +802,8 @@ public class TwelveKeyDialer extends Activity implements View.OnClickListener,
 			if(Settings.System.getInt(getContentResolver(),PICK_UP_TO_CALL) == 1) {
 				mSensorManager.unregisterListener(this,
 							mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION));
+				mSensorManager.unregisterListener(this,
+							mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY));
 			}
 		} catch (SettingNotFoundException e) {
 			Log.w("ERROR", e.toString());
@@ -1181,11 +1197,21 @@ public class TwelveKeyDialer extends Activity implements View.OnClickListener,
 			
 			//get event if orientation is changed
 			switch (event.sensor.getType()) {
+				
 			case Sensor.TYPE_ORIENTATION:
+				SensorOrientationY = (int) event.values[SensorManager.DATA_Y];
+				break;
 			
-				if (event.values[1] < -70) {
+			case Sensor.TYPE_PROXIMITY:
+				SensorProximity = (int) event.values[0];
+				break;	
+			}
+			
+			if (SensorOrientationY < -70 && SensorProximity == 0) {
 					mSensorManager.unregisterListener(this,
 					mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION));
+					mSensorManager.unregisterListener(this,
+					mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY));
 					
 					//start phone call intent
 					StickyTabs.saveTab(this, getIntent());
@@ -1194,7 +1220,6 @@ public class TwelveKeyDialer extends Activity implements View.OnClickListener,
 					mDigits.getText().clear();
 				
 				}
-			}
 		}
 	}
 	

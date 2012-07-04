@@ -257,23 +257,6 @@ public class TwelveKeyDialer extends Activity implements View.OnClickListener,
         //Wysie
         ePrefs = PreferenceManager.getDefaultSharedPreferences(getBaseContext());
         
-        //Pick-Up-To-Call
-        try {
-			if(Settings.System.getInt(getContentResolver(),PICK_UP_TO_CALL) == 1) {
-				SensorProximity = 1;
-				SensorOrientationY = 0;
-				
-				mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-				mSensorManager.registerListener(this,
-							mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION),
-							SensorManager.SENSOR_DELAY_UI);
-				mSensorManager.registerListener(this,
-							mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY),
-							SensorManager.SENSOR_DELAY_UI);
-			}
-		} catch (SettingNotFoundException e) {
-			Log.w("ERROR", e.toString());
-		}
         Resources r = getResources();
         // Do not show title in the case the device is in carmode.
         if ((r.getConfiguration().uiMode & Configuration.UI_MODE_TYPE_MASK) ==

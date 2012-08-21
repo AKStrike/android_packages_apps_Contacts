@@ -92,6 +92,13 @@ import android.preference.PreferenceManager;
 import android.provider.CallLog.Calls;
 import android.widget.ImageButton;
 
+//Pick-Up-To-Call
+import android.provider.Settings.SettingNotFoundException;
+import android.hardware.SensorEventListener;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorManager;
+
 /**
  * Dialer activity that displays the typical twelve key interface.
  */
@@ -100,7 +107,7 @@ public class TwelveKeyDialer extends Activity implements View.OnClickListener,
         View.OnLongClickListener, View.OnKeyListener,
         View.OnTouchListener,
         AdapterView.OnItemLongClickListener,
-        AdapterView.OnItemClickListener, TextWatcher {
+        AdapterView.OnItemClickListener, TextWatcher, SensorEventListener {
     private static final String EMPTY_NUMBER = "";
     private static final String TAG = "TwelveKeyDialer";
 
@@ -171,7 +178,13 @@ public class TwelveKeyDialer extends Activity implements View.OnClickListener,
     private T9Adapter mT9AdapterTop;
     private ViewSwitcher mT9Flipper;
     private LinearLayout mT9Top;
-
+	    
+    //Pick-Up-To-Call
+    private SensorManager mSensorManager;
+    private static final String PICK_UP_TO_CALL = "pick_up_to_call";
+    private int SensorOrientationY;
+	private int SensorProximity;
+    
     /**
      * Identifier for intent extra for sending an empty Flash message for
      * CDMA networks. This message is used by the network to simulate a
@@ -243,7 +256,7 @@ public class TwelveKeyDialer extends Activity implements View.OnClickListener,
         
         //Wysie
         ePrefs = PreferenceManager.getDefaultSharedPreferences(getBaseContext());
-
+        
         Resources r = getResources();
         // Do not show title in the case the device is in carmode.
         if ((r.getConfiguration().uiMode & Configuration.UI_MODE_TYPE_MASK) ==
@@ -582,6 +595,24 @@ public class TwelveKeyDialer extends Activity implements View.OnClickListener,
 
         updateDialAndDeleteButtonEnabledState();
         updateDialer();
+                
+        //Pick-Up-To-Call
+        try {
+			if(Settings.System.getInt(getContentResolver(),PICK_UP_TO_CALL) == 1) {
+				SensorProximity = 1;
+				SensorOrientationY = 0;
+				
+				mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+				mSensorManager.registerListener(this,
+							mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION),
+							SensorManager.SENSOR_DELAY_UI);
+				mSensorManager.registerListener(this,
+							mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY),
+							SensorManager.SENSOR_DELAY_UI);
+			}
+		} catch (SettingNotFoundException e) {
+			Log.w("ERROR", e.toString());
+		}
     }
 
     /**
@@ -747,6 +778,20 @@ public class TwelveKeyDialer extends Activity implements View.OnClickListener,
         // TODO: I wonder if we should not check if the AsyncTask that
         // lookup the last dialed number has completed.
         mLastNumberDialed = EMPTY_NUMBER;  // Since we are going to query again, free stale number.
+        
+    
+        //Pick-Up-To-Call
+		try {
+			if(Settings.System.getInt(getContentResolver(),PICK_UP_TO_CALL) == 1) {
+				mSensorManager.unregisterListener(this,
+							mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION));
+				mSensorManager.unregisterListener(this,
+							mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY));
+			}
+		} catch (SettingNotFoundException e) {
+			Log.w("ERROR", e.toString());
+		}
+        
     }
 
     @Override
@@ -1123,6 +1168,47 @@ public class TwelveKeyDialer extends Activity implements View.OnClickListener,
             finish();
         }
     }
+    
+    //Pick-Up-To-Call
+	@Override
+	public void onSensorChanged(SensorEvent event) {
+		final String number = mDigits.getText().toString();
+		Intent intent = new Intent(Intent.ACTION_CALL_PRIVILEGED);
+		
+		if (isDigitsEmpty()==false) {
+			intent.setData(Uri.fromParts("tel", number, null));
+			
+			//get event if orientation is changed
+			switch (event.sensor.getType()) {
+				
+			case Sensor.TYPE_ORIENTATION:
+				SensorOrientationY = (int) event.values[SensorManager.DATA_Y];
+				break;
+			
+			case Sensor.TYPE_PROXIMITY:
+				SensorProximity = (int) event.values[0];
+				break;	
+			}
+			
+			if (SensorOrientationY < -70 && SensorProximity == 0) {
+					mSensorManager.unregisterListener(this,
+					mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION));
+					mSensorManager.unregisterListener(this,
+					mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY));
+					
+					//start phone call intent
+					StickyTabs.saveTab(this, getIntent());
+					intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+					startActivity(intent);
+					mDigits.getText().clear();
+				
+				}
+		}
+	}
+	
+	@Override
+	public void onAccuracyChanged(Sensor sensor, int accuracy) {
+	}
 
     void dialButtonPressed() {
         final String number = mDigits.getText().toString();
